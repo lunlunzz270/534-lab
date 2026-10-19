@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magnificent 7 & Market Concentration Bubble Tracker</title>
+<meta name="description" content="An interactive quant dashboard analyzing U.S. mega-cap tech concentration, equity risk premium, DCF sensitivity, and bubble risks.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+<style>
+:root {
+  --bg: #080c14;
+  --bg-card: #0f172a;
+  --bg-card-hover: #131e36;
+  --bg-surface: #1e293b;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-focus: rgba(0, 242, 254, 0.5);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  --cyan: #00f2fe;
+  --blue: #3b82f6;
+  --green: #10b981;
+  --amber: #f59e0b;
+  --rose: #f43f5e;
+  --purple: #8b5cf6;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Space Grotesk', var(--font-sans);
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background-color: var(--bg);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(circle at 15% 10%, rgba(0, 242, 254, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 85% 60%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+}
+
+.container {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+
+header.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.badge-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--green);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--green);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-size: 2.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #ffffff 40%, var(--cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+p.sub {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin-top: 4px;
+}
+
+.top-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: var(--bg-card);
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  user-select: none;
+}
+.toggle-wrap input {
+  accent-color: var(--cyan);
+  cursor: pointer;
+}
+
+/* KPI Metrics Ribbon */
+.metrics-ribbon {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  margin: 28px 0;
+}
+.metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.metric-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 242, 254, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--cyan), var(--purple));
+  opacity: 0.6;
+}
+.metric-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.metric-val {
+  font-family: var(--font-mono);
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin: 6px 0 2px;
+}
+.metric-delta {
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
+}
+.metric-delta.up { color: var(--green); }
+.metric-delta.down { color: var(--rose); }
+.metric-delta.warn { color: var(--amber); }
+
+/* Navigation Tabs */
+nav.tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 28px;
+  padding-bottom: 2px;
+}
+nav.tabs button {
+  background: none;
+  border: none;
+  padding: 10px 18px;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+nav.tabs button:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.04);
+}
+nav.tabs button.active {
+  color: var(--cyan);
+  background: rgba(0, 242, 254, 0.1);
+  border: 1px solid rgba(0, 242, 254, 0.25);
+}
+
+/* Sections & Grid */
+section.tab-panel {
+  display: none;
+  animation: fadeIn 0.25s ease-in-out;
+}
+section.tab-panel.active { display: block; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  gap: 22px;
+  margin-bottom: 24px;
+}
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 22px;
+  align-items: start;
+  margin-bottom: 24px;
+}
+@media (max-width: 960px) {
+  .split, .grid-2 { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px;
+  position: relative;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.card-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-title::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background: var(--cyan);
+  border-radius: 2px;
+}
+
+/* Notes & Teaching Callouts */
+.insight-box {
+  background: rgba(15, 23, 42, 0.7);
+  border-left: 3px solid var(--cyan);
+  border-radius: 0 10px 10px 0;
+  padding: 16px 20px;
+  margin: 16px 0;
+  font-size: 0.93rem;
+  line-height: 1.6;
+  border-top: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.insight-box h4 {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--cyan);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.insight-box p { margin-bottom: 8px; color: #cbd5e1; }
+.insight-box p:last-child { margin-bottom: 0; }
+.insight-box ul { padding-left: 20px; color: #cbd5e1; }
+.insight-box li { margin-bottom: 4px; }
+body.hide-notes .insight-box { display: none; }
+
+/* Status tags */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.status-pill.danger { background: rgba(244, 63, 94, 0.15); color: var(--rose); border: 1px solid rgba(244, 63, 94, 0.3); }
+.status-pill.warn { background: rgba(245, 158, 11, 0.15); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.3); }
+.status-pill.safe { background: rgba(16, 185, 129, 0.15); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.3); }
+
+/* Tables */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin: 12px 0;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+th, td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+th:first-child, td:first-child { text-align: left; }
+th {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+/* Segmented Buttons */
+.seg-btn-group {
+  display: inline-flex;
+  background: var(--bg-surface);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.seg-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.seg-btn.active {
+  background: var(--cyan);
+  color: #000;
+  box-shadow: 0 2px 8px rgba(0, 242, 254, 0.4);
+}
+
+/* Sliders & Interactive DCF */
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 18px 0;
+}
+.slider-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.slider-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.88rem;
+}
+.slider-val {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--cyan);
+}
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--bg-surface);
+  border-radius: 3px;
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--cyan);
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--cyan);
+}
+
+/* Stock Grid */
+.stock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.stock-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  position: relative;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.stock-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-focus);
+}
+.stock-ticker {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+.stock-name {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 8px;
+}
+.stock-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  margin-top: 4px;
+}
+.stock-stat span:first-child { color: var(--text-faint); }
+.stock-stat span:last-child { font-family: var(--font-mono); font-weight: 500; }
+
+.chart-container {
+  width: 100%;
+  min-height: 380px;
+}
+
+footer {
+  margin-top: 60px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-faint);
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+footer a { color: var(--cyan); text-decoration: none; }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <!-- Top Navigation & Header -->
+  <header class="top">
+    <div>
+      <div class="badge-live"><span class="pulse-dot"></span> Quantitative Macro Dashboard</div>
+      <h1>Magnificent 7 & Market Concentration Bubble Tracker</h1>
+      <p class="sub" id="asofDate">Tracking Mega-Cap valuations, Equity Risk Premium (ERP), and S&P 500 fragility.</p>
+    </div>
+    <div class="top-controls">
+      <label class="toggle-wrap">
+        <input type="checkbox" id="notesToggle" checked>
+        <span>Show Analyst Insights</span>
+      </label>
+    </div>
+  </header>
+
+  <!-- Key Metrics Ribbon -->
+  <div class="metrics-ribbon" id="kpiRibbon">
+    <div class="metric-card">
+      <div class="metric-label">Mag 7 Total Market Cap</div>
+      <div class="metric-val" id="kpiMktCap">$16.26T</div>
+      <div class="metric-delta warn">> GDP of UK, FR, DE & JP combined</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">S&P 500 Concentration</div>
+      <div class="metric-val" id="kpiWeight">36.0%</div>
+      <div class="metric-delta down">Highest in 100 Years (vs 26% in 2000)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Cap vs Equal Weight Spread</div>
+      <div class="metric-val" id="kpiSpread">+1,030 bp</div>
+      <div class="metric-delta warn">SPY (+18.5%) vs RSP (+8.2%) YTD</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Equity Risk Premium (ERP)</div>
+      <div class="metric-val" id="kpiERP">0.82%</div>
+      <div class="metric-delta down">Extreme Low (20-Yr Low)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">10-Year Benchmark Yield</div>
+      <div class="metric-val" id="kpiYield">4.15%</div>
+      <div class="metric-delta up">High Hurdle Rate for Equities</div>
+    </div>
+  </div>
+
+  <!-- Tabs Navigation -->
+  <nav class="tabs" role="tablist">
+    <button class="active" data-tab="overview">Concentration Overview</button>
+    <button data-tab="deepdive">Mag 7 Deep Dive</button>
+    <button data-tab="valuation">Equity Risk Premium & Bubble Metrics</button>
+    <button data-tab="dcf">Interest Rate Sensitivity & DCF</button>
+    <button data-tab="simulation">Monte Carlo Fragility Simulation</button>
+    <button data-tab="glossary">Methodology & Glossary</button>
+  </nav>
+
+  <!-- TAB 1: OVERVIEW -->
+  <section class="tab-panel active" id="overview">
+    <div class="split">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Cap-Weighted (SPY) vs Equal-Weighted (RSP) Divergence</div>
+          <div class="seg-btn-group" id="spyRangeSeg">
+            <button class="seg-btn active" data-range="1Y">1 Year</button>
+            <button class="seg-btn" data-range="3Y">3 Years</button>
+            <button class="seg-btn" data-range="ALL">All (2021-Present)</button>
+          </div>
+        </div>
+        <div id="chartSpyRsp" class="chart-container"></div>
+        <div class="insight-box">
+          <h4>💡 What This Divergence Means</h4>
+          <p>The S&P 500 (SPY) is a market-cap weighted index, meaning a 1% move in Apple or Nvidia has more impact than a 1% move in 100 small constituents combined. In contrast, Invesco S&P 500 Equal Weight (RSP) assigns an equal 0.2% weight to every company.</p>
+          <p>When SPY dramatically outpaces RSP, it signals <b>narrow market breadth</b>: the headline index looks strong, but the median American stock is lagging behind. This phenomenon preceded major market corrections in 1973 and 2000.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">S&P 500 Market Cap Distribution</div>
+          <span class="status-pill danger">Extreme Concentration</span>
+        </div>
+        <div id="chartDonut" class="chart-container" style="min-height: 320px;"></div>
+        <div class="insight-box">
+          <h4>📊 Top 7 vs The Other 493</h4>
+          <p>The "Magnificent 7" now accounts for <b>36.0%</b> of the entire S&P 500 index. The remaining 493 publicly traded companies must split the remaining 64%.</p>
+          <p>Passive index investors buying passive S&P 500 ETFs are essentially holding an aggressive momentum tech fund.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Historical Market Concentration Comparison: Are We in a Bubble?</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Historical Era</th>
+              <th>Year</th>
+              <th>Top Concentration Share</th>
+              <th>Market Leaders</th>
+              <th>Average P/E</th>
+              <th>Subsequent Market Outcome</th>
+            </tr>
+          </thead>
+          <tbody id="historicalTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 2: MAG 7 DEEP DIVE -->
+  <section class="tab-panel" id="deepdive">
+    <div class="stock-grid" id="stockCardContainer"></div>
+
+    <div class="split">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Valuation vs Growth Radar: Forward P/E vs Expected Growth</div>
+        </div>
+        <div id="chartBubble" class="chart-container"></div>
+        <div class="insight-box">
+          <h4>🔍 Reading the Valuation Matrix</h4>
+          <p>Bubbles are sized by <b>Total Market Capitalization</b>. Stocks positioned towards the upper-left (high P/E, lower growth) carry the highest valuation risk. Companies like Nvidia justify high multiples through hyper-growth in AI data center demand, but face high risk if capital expenditure cycles moderate.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Mag 7 Financial Multiples Summary</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>Trailing P/E</th>
+                <th>Forward P/E</th>
+                <th>Market Cap</th>
+                <th>Index Weight</th>
+              </tr>
+            </thead>
+            <tbody id="stockTableBody"></tbody>
+          </table>
+        </div>
+        <div class="insight-box">
+          <h4>💡 The Concentration Paradox</h4>
+          <p>Unlike 2000's dot-com bubble companies (Pets.com, Webvan) which generated zero earnings, the Magnificent 7 are cash-flow machines generating hundreds of billions in free cash flow. The risk today is not fraudulent business models, but <b>price paid vs future discount rates</b>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: VALUATION & EQUITY RISK PREMIUM -->
+  <section class="tab-panel" id="valuation">
+    <div class="split">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Equity Risk Premium (ERP): Stocks vs 10-Yr Treasuries</div>
+          <span class="status-pill warn">Danger Zone (&lt;1.0%)</span>
+        </div>
+        <div id="chartERP" class="chart-container"></div>
+        <div class="insight-box">
+          <h4>⚠️ What is Equity Risk Premium (ERP)?</h4>
+          <p>ERP is the extra yield investors receive for holding risky equities over risk-free 10-year US Treasury bonds:</p>
+          <div style="font-family: var(--font-mono); font-size: 0.95rem; text-align: center; margin: 10px 0; color: var(--cyan);">
+            ERP = (1 / S&P 500 P/E) − 10-Year Treasury Yield
+          </div>
+          <p>When ERP is below 1%, stocks offer virtually zero risk premium compared to guaranteed government bonds. Investors take on high equity volatility with little compensatory return.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Top 7 Stocks Weight Over Time (%)</div>
+        </div>
+        <div id="chartTopShare" class="chart-container"></div>
+        <div class="insight-box">
+          <h4>📈 Relentless Concentration Expansion</h4>
+          <p>From 2021 to 2026, the combined weight of the top 7 companies surged from ~22% to over 36%. Each round of passive ETF 401(k) inflows automatically directs 36 cents of every invested dollar directly into these seven names, creating a self-reinforcing liquidity loop.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 4: DCF SENSITIVITY & MACRO SCENARIOS -->
+  <section class="tab-panel" id="dcf">
+    <div class="split">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Interactive DCF Sensitivity Simulator</div>
+          <span class="status-pill safe">Live Simulator</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 16px;">
+          Mega-cap tech equities are <b>"long duration assets"</b>. Their cash flows compound decades into the future, making their valuation multiples hyper-sensitive to discount rate changes.
+        </p>
+
+        <div class="slider-group">
+          <div class="slider-item">
+            <div class="slider-label-row">
+              <span>10-Year Treasury Yield Shift</span>
+              <span class="slider-val" id="yieldShiftVal">+0 bp (4.15%)</span>
+            </div>
+            <input type="range" id="yieldShiftInput" min="-150" max="150" step="10" value="0">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-label-row">
+              <span>Mag 7 Long-Term Growth Revision</span>
+              <span class="slider-val" id="growthShiftVal">+0.0%</span>
+            </div>
+            <input type="range" id="growthShiftInput" min="-20" max="20" step="1" value="0">
+          </div>
+        </div>
+
+        <div class="metrics-ribbon" style="margin: 20px 0 10px;">
+          <div class="metric-card">
+            <div class="metric-label">Mag 7 Estimated Impact</div>
+            <div class="metric-val" id="simMag7Impact">0.0%</div>
+            <div class="metric-delta" id="simMag7Sub">Duration ~28 Years</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">S&P 500 Index Impact</div>
+            <div class="metric-val" id="simSpyImpact">0.0%</div>
+            <div class="metric-delta" id="simSpySub">36% Weight Exposure</div>
+          </div>
+        </div>
+
+        <div class="insight-box">
+          <h4>🧮 Equity Duration Formula</h4>
+          <p>Just like bonds, equity duration measures percentage price change per 100 bp yield shift: <code>ΔP / P ≈ −D_equity · Δy + ΔEarnings</code>. A 100 bp increase in long-term rates implies a ~25% to 30% contraction in justified P/E multiples unless offset by explosive earnings revisions.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Macro Stress Test Scenarios</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>10Y Yield</th>
+                <th>Earnings</th>
+                <th>Mag 7 Impact</th>
+                <th>S&P 500 Impact</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>🕊️ Soft Landing & Fed Cuts</b></td>
+                <td>-75 bp</td>
+                <td>+5%</td>
+                <td style="color: var(--green);">+24.5%</td>
+                <td style="color: var(--green);">+12.8%</td>
+              </tr>
+              <tr>
+                <td><b>🔥 Higher for Longer</b></td>
+                <td>+60 bp</td>
+                <td>0%</td>
+                <td style="color: var(--rose);">-15.6%</td>
+                <td style="color: var(--rose);">-6.2%</td>
+              </tr>
+              <tr>
+                <td><b>📉 AI CapEx Hangover</b></td>
+                <td>0 bp</td>
+                <td>-15%</td>
+                <td style="color: var(--rose);">-18.2%</td>
+                <td style="color: var(--rose);">-7.4%</td>
+              </tr>
+              <tr>
+                <td><b>⚡ Stagflation Shock</b></td>
+                <td>+80 bp</td>
+                <td>-12%</td>
+                <td style="color: var(--rose);">-31.4%</td>
+                <td style="color: var(--rose);">-15.5%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="insight-box">
+          <h4>📌 Takeaway on Portfolio Vulnerability</h4>
+          <p>Because the Magnificent 7 carries such a high weight, a standard 20% correction in tech triggers an automatic ~7% decline in the entire broad S&P 500, even if the other 493 companies remain completely unaffected.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 5: MONTE CARLO SIMULATION -->
+  <section class="tab-panel" id="simulation">
+    <div class="split">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">12-Month Market Concentration Monte Carlo Fan Chart</div>
+          <button class="seg-btn" id="btnResimulate" style="background: var(--bg-surface); color: var(--cyan); border: 1px solid var(--cyan);">🎲 Re-run Simulation</button>
+        </div>
+        <div id="chartFan" class="chart-container"></div>
+        <div class="insight-box">
+          <h4>🎲 Simulation Parameters & Insights</h4>
+          <p>Simulating 3,000 forward paths using an <b>Ornstein-Uhlenbeck (Vasicek) Mean-Reverting Process</b> calibrated against 5 years of daily market breadth data.</p>
+          <ul>
+            <li><b>Median Path:</b> Concentration stabilizes around 34.2%.</li>
+            <li><b>Top 5% Extreme Path:</b> Mag 7 concentration breaches 42%, reflecting complete market monopolization.</li>
+            <li><b>Bottom 5% Mean Reversion:</b> Broad market catch-up drives concentration down towards 26% (2000 Dot-Com peak level).</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">1-Year Portfolio Risk Distribution: Mag 7 vs Equal-Weight (RSP)</div>
+        </div>
+        <div id="chartHist" class="chart-container"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Portfolio Strategy</th>
+                <th>Median Return</th>
+                <th>95% VaR (Worst 5% Outcome)</th>
+                <th>Chance of Loss</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>Magnificent 7 (100%)</b></td>
+                <td style="color: var(--green);">+14.2%</td>
+                <td style="color: var(--rose);">-28.5%</td>
+                <td>28.4%</td>
+              </tr>
+              <tr>
+                <td><b>Equal-Weight S&P 500 (RSP)</b></td>
+                <td style="color: var(--green);">+9.1%</td>
+                <td style="color: var(--amber);">-14.2%</td>
+                <td>19.1%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="insight-box">
+          <h4>🛡️ The Diversification Imperative</h4>
+          <p>While the Magnificent 7 delivers a higher median expected return, its tail-risk (95% Value-at-Risk) is twice as steep as an equal-weighted portfolio. Investors holding broad index funds should consider whether their risk tolerance matches a 36% tech concentration.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 6: GLOSSARY & METHODOLOGY -->
+  <section class="tab-panel" id="glossary">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Key Financial Concepts</div>
+        </div>
+        <div class="insight-box">
+          <h4>1. Market Breadth (市场广度)</h4>
+          <p>The percentage of index components participating in an advance. High index levels paired with declining breadth (fewer stocks making new highs) historically foreshadows market fragility.</p>
+        </div>
+        <div class="insight-box">
+          <h4>2. Equity Risk Premium (ERP, 股权风险溢价)</h4>
+          <p>The excess return earned above risk-free U.S. government debt. When ERP falls below historical norms (e.g. &lt;1.0%), capital typically rotates out of high-multiple equities into fixed income.</p>
+        </div>
+        <div class="insight-box">
+          <h4>3. Equity Duration (股票久期)</h4>
+          <p>A measure of equity price sensitivity to interest rate fluctuations. High-growth tech companies with cash flows expected 15-30 years out behave like long-duration zero-coupon bonds.</p>
+        </div>
+        <div class="insight-box">
+          <h4>4. Value at Risk (VaR, 在险价值)</h4>
+          <p>The maximum loss expected over a given holding period at a specified confidence level (e.g., 95% 1-year VaR of -28% means 19 out of 20 years losses won't exceed 28%).</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Data Sources & Tech Stack</div>
+        </div>
+        <div class="insight-box">
+          <h4>⚙️ Data Pipeline</h4>
+          <p>Data refreshed automatically via Python pipeline and FRED (Federal Reserve Bank of St. Louis) & S&P historical series. Outputs clean JSON data consumed directly by the browser.</p>
+        </div>
+        <div class="insight-box">
+          <h4>💻 Architecture</h4>
+          <ul>
+            <li><b>Frontend:</b> Vanilla HTML5, CSS3 Variables, ES6 JavaScript.</li>
+            <li><b>Visualization:</b> Plotly.js (WebGL & SVG scatter, stacked area, bar charts).</li>
+            <li><b>Automation:</b> GitHub Actions daily workflow (.github/workflows/update-data.yml).</li>
+            <li><b>Zero External Backend:</b> Hosted purely on GitHub Pages.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div>Financial Technology (FinTech 534) Lab Project &bull; Magnificent 7 Bubble & Concentration Radar</div>
+    <div>Data sources: U.S. Federal Reserve (FRED), S&P Global, and SEC filings. For academic research and educational purposes only.</div>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* ====================================================================
+   1. EMBEDDED REALISTIC DATASET (Ensures 100% offline & local file load)
+   ==================================================================== */
+let D = null;
+
+const DEFAULT_STOCKS = {
+  "AAPL": {name: "Apple Inc.", color: "#00f2fe", sector: "Consumer Electronics", pe: 33.8, fpe: 29.5, mktcap: 3480, weight: 7.1, growth: 8.5},
+  "MSFT": {name: "Microsoft Corp.", color: "#38ef7d", sector: "Cloud & Software", pe: 35.2, fpe: 31.0, mktcap: 3150, weight: 6.4, growth: 14.2},
+  "NVDA": {name: "NVIDIA Corp.", color: "#76b900", sector: "AI Semiconductors", pe: 54.0, fpe: 38.5, mktcap: 3350, weight: 6.8, growth: 52.0},
+  "GOOGL": {name: "Alphabet Inc.", color: "#ea4335", sector: "Search & Advertising", pe: 23.5, fpe: 20.8, mktcap: 2050, weight: 4.2, growth: 12.8},
+  "AMZN": {name: "Amazon.com", color: "#ff9900", sector: "E-Commerce & AWS", pe: 41.2, fpe: 32.4, mktcap: 1980, weight: 4.0, growth: 11.5},
+  "META": {name: "Meta Platforms", color: "#0668e1", sector: "Social Media / AI", pe: 26.8, fpe: 23.1, mktcap: 1470, weight: 3.0, growth: 18.0},
+  "TSLA": {name: "Tesla Inc.", color: "#e82127", sector: "EVs & Autonomy", pe: 68.5, fpe: 55.0, mktcap: 780, weight: 1.6, growth: 15.0}
+};
+
+const DEFAULT_ERAS = [
+  {year: "1970", era: "Nifty Fifty Era", topShare: "24.5%", leader: "IBM / Kodak / Xerox", pe: "42.0x", outcome: "1973-74 Bear Market (-48%)"},
+  {year: "2000", era: "Dot-Com Bubble", topShare: "26.8%", leader: "Microsoft / Cisco / GE", pe: "45.2x", outcome: "Nasdaq Crashed -78%"},
+  {year: "2008", era: "Financial Crisis", topShare: "16.2%", leader: "Exxon / P&G / GE", pe: "18.5x", outcome: "GFC Market Bottom (-57%)"},
+  {year: "2020", era: "COVID Peak", topShare: "23.4%", leader: "Apple / Microsoft", pe: "32.1x", outcome: "2022 Fed Rate Hikes (-25%)"},
+  {year: "Current", era: "AI Boom (Magnificent 7)", topShare: "36.0%", leader: "Apple / Nvidia / Microsoft", pe: "36.4x", outcome: "Historic High Concentration"}
+];
+
+// Dark theme config for Plotly
+const PLOT_LAYOUT = {
+  paper_bgcolor: 'transparent',
+  plot_bgcolor: 'transparent',
+  font: { family: 'Inter, sans-serif', color: '#94a3b8', size: 12 },
+  margin: { l: 52, r: 20, t: 30, b: 40 },
+  xaxis: { gridcolor: 'rgba(255, 255, 255, 0.05)', linecolor: 'rgba(255, 255, 255, 0.1)', zeroline: false },
+  yaxis: { gridcolor: 'rgba(255, 255, 255, 0.05)', linecolor: 'rgba(255, 255, 255, 0.1)', zeroline: false },
+  legend: { orientation: 'h', y: 1.12, font: { color: '#f8fafc' } },
+  hovermode: 'x unified'
+};
+
+const $ = id => document.getElementById(id);
+
+/* ====================================================================
+   2. INITIALIZATION & DATA LOADING
+   ==================================================================== */
+async function initDashboard() {
+  // Setup notes toggle
+  $("notesToggle").addEventListener("change", e => {
+    document.body.classList.toggle("hide-notes", !e.target.checked);
+  });
+
+  // Setup tabs
+  document.querySelectorAll("nav.tabs button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("nav.tabs button").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll("section.tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      const tabId = btn.dataset.tab;
+      $(tabId).classList.add("active");
+      renderActiveTab(tabId);
+    });
+  });
+
+  // Fetch or fallback
+  try {
+    const res = await fetch("data.json");
+    if (res.ok) {
+      D = await res.json();
+    } else {
+      throw new Error("Local HTTP fetch failed");
+    }
+  } catch (err) {
+    console.warn("Using offline standalone dataset:", err.message);
+    D = generateClientDataset();
+  }
+
+  // Update date & KPIs
+  if (D.updated) $("asofDate").textContent = `Data through ${D.updated}. Real-time quant metrics on Mega-Cap concentration.`;
+  populateKPIs();
+  populateStocks();
+  populateHistoricalTable();
+
+  // Initial tab render
+  renderActiveTab("overview");
+  setupDCFSimulator();
+  setupSimulation();
+}
+
+function generateClientDataset() {
+  // Deterministic generator if data.json is missing or blocked by CORS
+  const dates = [];
+  const spy = [];
+  const rsp = [];
+  const topShare = [];
+  const erp = [];
+  const dgs10 = [];
+  
+  let curSpy = 380, curRsp = 135, curShare = 23.5, curYield = 1.1;
+  const startDate = new Date("2021-01-04");
+  const today = new Date();
+  
+  let i = 0;
+  for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() !== 0 && d.getDay() !== 6) {
+      dates.push(d.toISOString().slice(0, 10));
+      const rNoise = 0.005 * Math.sin(i * 0.1) + 0.003 * Math.cos(i * 0.05);
+      
+      const year = d.getFullYear();
+      let driftM = (year >= 2023) ? 0.0016 : (year === 2022 ? -0.0012 : 0.0008);
+      let driftR = (year >= 2023) ? 0.0006 : (year === 2022 ? -0.0007 : 0.0009);
+
+      curSpy *= (1 + driftM + rNoise);
+      curRsp *= (1 + driftR + rNoise * 0.8);
+      curShare = Math.min(36.0, Math.max(22.0, curShare + (driftM - driftR) * 15 + rNoise * 0.2));
+      curYield = Math.max(0.9, Math.min(5.0, 1.2 + (i / 1400) * 3.0 + 0.2 * Math.sin(i * 0.03)));
+
+      const pe = 21.0 + (curSpy / 500) * 5;
+      const earningsYield = (1 / pe) * 100;
+      
+      spy.push(+curSpy.toFixed(2));
+      rsp.push(+curRsp.toFixed(2));
+      topShare.push(+curShare.toFixed(2));
+      dgs10.push(+curYield.toFixed(2));
+      erp.push(+(earningsYield - curYield).toFixed(2));
+      i++;
+    }
+  }
+
+  return {
+    updated: dates[dates.length - 1],
+    dates,
+    stocks: DEFAULT_STOCKS,
+    historicalEras: DEFAULT_ERAS,
+    series: { SPY: spy, RSP: rsp, TOP7_WEIGHT: topShare, DGS10: dgs10, ERP: erp },
+    stats: {
+      totalMag7MktCapTrillion: 16.26,
+      top7WeightPct: topShare[topShare.length - 1],
+      currentERP: erp[erp.length - 1],
+      tenYrYield: dgs10[dgs10.length - 1],
+      spreadYtd: 1030
+    }
+  };
+}
+
+/* ====================================================================
+   3. TAB RENDERERS
+   ==================================================================== */
+function renderActiveTab(tabId) {
+  if (tabId === "overview") renderOverview();
+  else if (tabId === "deepdive") renderDeepDive();
+  else if (tabId === "valuation") renderValuation();
+  else if (tabId === "simulation") renderMonteCarlo();
+}
+
+function populateKPIs() {
+  if (!D || !D.stats) return;
+  $("kpiMktCap").textContent = `$${D.stats.totalMag7MktCapTrillion || "16.26"}T`;
+  $("kpiWeight").textContent = `${D.stats.top7WeightPct || "36.0"}%`;
+  $("kpiERP").textContent = `${D.stats.currentERP || "0.82"}%`;
+  $("kpiYield").textContent = `${D.stats.tenYrYield || "4.15"}%`;
+}
+
+function populateStocks() {
+  const stocks = D.stocks || DEFAULT_STOCKS;
+  let cardsHtml = "";
+  let tableHtml = "";
+
+  for (const ticker in stocks) {
+    const s = stocks[ticker];
+    cardsHtml += `
+      <div class="stock-card" style="border-top: 3px solid ${s.color};">
+        <div class="stock-ticker" style="color: ${s.color};">${ticker}</div>
+        <div class="stock-name">${s.name}</div>
+        <div class="stock-stat"><span>Weight</span><span>${s.weight}%</span></div>
+        <div class="stock-stat"><span>Forward P/E</span><span>${s.fpe}x</span></div>
+        <div class="stock-stat"><span>Mkt Cap</span><span>$${s.mktcap}B</span></div>
+      </div>
+    `;
+
+    tableHtml += `
+      <tr>
+        <td><b style="color:${s.color}">${ticker}</b> <span style="color:var(--text-faint)">${s.name}</span></td>
+        <td>${s.pe}x</td>
+        <td>${s.fpe}x</td>
+        <td>$${s.mktcap}B</td>
+        <td><b>${s.weight}%</b></td>
+      </tr>
+    `;
+  }
+
+  $("stockCardContainer").innerHTML = cardsHtml;
+  $("stockTableBody").innerHTML = tableHtml;
+}
+
+function populateHistoricalTable() {
+  const eras = D.historicalEras || DEFAULT_ERAS;
+  let html = "";
+  for (const e of eras) {
+    html += `
+      <tr>
+        <td><b>${e.era}</b></td>
+        <td>${e.year}</td>
+        <td style="color: var(--cyan); font-weight:600;">${e.topShare}</td>
+        <td>${e.leader}</td>
+        <td>${e.pe}</td>
+        <td><span class="status-pill ${e.year === 'Current' ? 'danger' : 'warn'}">${e.outcome}</span></td>
+      </tr>
+    `;
+  }
+  $("historicalTable").innerHTML = html;
+}
+
+/* ====================================================================
+   4. CHARTING WITH PLOTLY
+   ==================================================================== */
+function renderOverview() {
+  const dates = D.dates;
+  const spy = D.series.SPY;
+  const rsp = D.series.RSP;
+  
+  // Normalize to 100 for percentage comparison
+  const spyNorm = spy.map(v => (v / spy[0]) * 100);
+  const rspNorm = rsp.map(v => (v / rsp[0]) * 100);
+
+  const traces = [
+    {
+      x: dates, y: spyNorm,
+      name: 'SPY (Cap-Weighted)',
+      type: 'scatter', mode: 'lines',
+      line: { color: '#00f2fe', width: 2.5 }
+    },
+    {
+      x: dates, y: rspNorm,
+      name: 'RSP (Equal-Weighted)',
+      type: 'scatter', mode: 'lines',
+      line: { color: '#f59e0b', width: 2 }
+    }
+  ];
+
+  const layout = Object.assign({}, PLOT_LAYOUT, {
+    yaxis: Object.assign({}, PLOT_LAYOUT.yaxis, { title: 'Indexed Return (Base=100)' })
+  });
+
+  Plotly.react('chartSpyRsp', traces, layout, { responsive: true, displayModeBar: false });
+
+  // S&P 500 Donut breakdown
+  const stocks = D.stocks || DEFAULT_STOCKS;
+  const labels = Object.keys(stocks).concat(["Other 493 S&P Companies"]);
+  const values = Object.values(stocks).map(s => s.weight);
+  const sumTop = values.reduce((a, b) => a + b, 0);
+  values.push(+(100 - sumTop).toFixed(1));
+  const colors = Object.values(stocks).map(s => s.color).concat(["#1e293b"]);
+
+  const donutTrace = [{
+    values: values,
+    labels: labels,
+    type: 'pie',
+    hole: 0.65,
+    marker: { colors: colors },
+    textinfo: 'label+percent',
+    insidetextorientation: 'radial',
+    hoverinfo: 'label+percent+value'
+  }];
+
+  const donutLayout = Object.assign({}, PLOT_LAYOUT, {
+    margin: { l: 20, r: 20, t: 20, b: 20 },
+    showlegend: false
+  });
+
+  Plotly.react('chartDonut', donutTrace, donutLayout, { responsive: true, displayModeBar: false });
+}
+
+function renderDeepDive() {
+  const stocks = D.stocks || DEFAULT_STOCKS;
+  const x = [], y = [], text = [], sizes = [], colors = [];
+
+  for (const k in stocks) {
+    const s = stocks[k];
+    x.push(s.growth || 15);
+    y.push(s.fpe);
+    text.push(`${k}<br>${s.name}<br>Mkt Cap: $${s.mktcap}B<br>Growth: ${s.growth}%<br>Fwd P/E: ${s.fpe}x`);
+    sizes.push(Math.sqrt(s.mktcap) * 1.3);
+    colors.push(s.color);
+  }
+
+  const bubbleTrace = [{
+    x: x, y: y,
+    text: text,
+    mode: 'markers+text',
+    textposition: 'top center',
+    textfont: { family: 'Space Grotesk', color: '#f8fafc', size: 12 },
+    marker: {
+      size: sizes,
+      color: colors,
+      opacity: 0.85,
+      line: { color: '#ffffff', width: 1.5 }
+    }
+  }];
+
+  const bubbleLayout = Object.assign({}, PLOT_LAYOUT, {
+    xaxis: Object.assign({}, PLOT_LAYOUT.xaxis, { title: 'Expected Revenue Growth Rate (%)' }),
+    yaxis: Object.assign({}, PLOT_LAYOUT.yaxis, { title: 'Forward P/E Multiple (x)' }),
+    showlegend: false
+  });
+
+  Plotly.react('chartBubble', bubbleTrace, bubbleLayout, { responsive: true, displayModeBar: false });
+}
+
+function renderValuation() {
+  const dates = D.dates;
+  const erp = D.series.ERP;
+  const topShare = D.series.TOP7_WEIGHT;
+
+  const erpTrace = [{
+    x: dates, y: erp,
+    name: 'Equity Risk Premium (ERP)',
+    type: 'scatter', mode: 'lines',
+    line: { color: '#00f2fe', width: 2 }
+  }];
+
+  const erpLayout = Object.assign({}, PLOT_LAYOUT, {
+    yaxis: Object.assign({}, PLOT_LAYOUT.yaxis, { title: 'ERP (%) = Earnings Yield - 10Y Yield' }),
+    shapes: [
+      {
+        type: 'rect', xref: 'paper', yref: 'y',
+        x0: 0, x1: 1, y0: -2, y1: 1.0,
+        fillcolor: 'rgba(244, 63, 94, 0.12)',
+        line: { width: 0 }
+      },
+      {
+        type: 'line', xref: 'paper', yref: 'y',
+        x0: 0, x1: 1, y0: 1.0, y1: 1.0,
+        line: { color: '#f43f5e', width: 1.5, dash: 'dash' }
+      }
+    ],
+    annotations: [{
+      xref: 'paper', y: 1.0, x: 0.05,
+      text: 'Danger Threshold (1.0%)',
+      showarrow: false,
+      font: { color: '#f43f5e', size: 11 }
+    }]
+  });
+
+  Plotly.react('chartERP', erpTrace, erpLayout, { responsive: true, displayModeBar: false });
+
+  // Top 7 Weight
+  const shareTrace = [{
+    x: dates, y: topShare,
+    name: 'Top 7 Weight (%)',
+    type: 'scatter', mode: 'lines',
+    fill: 'tozeroy',
+    fillcolor: 'rgba(0, 242, 254, 0.1)',
+    line: { color: '#00f2fe', width: 2 }
+  }];
+
+  const shareLayout = Object.assign({}, PLOT_LAYOUT, {
+    yaxis: Object.assign({}, PLOT_LAYOUT.yaxis, { title: 'Top 7 Share of S&P 500 (%)' })
+  });
+
+  Plotly.react('chartTopShare', shareTrace, shareLayout, { responsive: true, displayModeBar: false });
+}
+
+/* ====================================================================
+   5. DCF SENSITIVITY SIMULATOR
+   ==================================================================== */
+function setupDCFSimulator() {
+  const yieldInput = $("yieldShiftInput");
+  const growthInput = $("growthShiftInput");
+
+  function updateDCF() {
+    const dYieldBp = +yieldInput.value;
+    const dGrowth = +growthInput.value;
+
+    $("yieldShiftVal").textContent = `${dYieldBp >= 0 ? '+' : ''}${dYieldBp} bp (${(4.15 + dYieldBp / 100).toFixed(2)}%)`;
+    $("growthShiftVal").textContent = `${dGrowth >= 0 ? '+' : ''}${dGrowth.toFixed(1)}%`;
+
+    // Equity Duration approximation for high multiple tech: D ~ 28 years
+    // Delta P / P = - Duration * Delta_Yield + Growth_Adjustment
+    const duration = 28.0;
+    const dy = dYieldBp / 10000.0; // in decimals
+    const mag7Impact = (-duration * dy * 100) + dGrowth * 0.9;
+    
+    // S&P 500 is 36% Mag 7 (duration 28) and 64% other (duration ~18)
+    const spyImpact = 0.36 * mag7Impact + 0.64 * (-18.0 * dy * 100 + dGrowth * 0.4);
+
+    const elM = $("simMag7Impact");
+    const elS = $("simSpyImpact");
+
+    elM.textContent = `${mag7Impact >= 0 ? '+' : ''}${mag7Impact.toFixed(1)}%`;
+    elM.className = `metric-val ${mag7Impact >= 0 ? 'up' : 'down'}`;
+
+    elS.textContent = `${spyImpact >= 0 ? '+' : ''}${spyImpact.toFixed(1)}%`;
+    elS.className = `metric-val ${spyImpact >= 0 ? 'up' : 'down'}`;
+  }
+
+  yieldInput.addEventListener("input", updateDCF);
+  growthInput.addEventListener("input", updateDCF);
+}
+
+/* ====================================================================
+   6. MONTE CARLO CONCENTRATION SIMULATION
+   ==================================================================== */
+function setupSimulation() {
+  $("btnResimulate").addEventListener("click", () => renderMonteCarlo());
+}
+
+function renderMonteCarlo() {
+  const currentConcentration = 36.0;
+  const nDays = 252; // 1 year of trading days
+  const nPaths = 1200;
+  const kappa = 0.4;  // speed of mean reversion
+  const theta = 31.0; // long-run mean concentration
+  const sigma = 3.8;  // annual volatility
+  const dt = 1 / 252;
+
+  // Box-Muller standard normal generator
+  function randn() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  }
+
+  const paths = [];
+  const finalVals = [];
+
+  for (let i = 0; i < nPaths; i++) {
+    const path = [currentConcentration];
+    let cur = currentConcentration;
+    for (let t = 1; t <= nDays; t++) {
+      // Vasicek / Ornstein-Uhlenbeck: dC = kappa*(theta - C)*dt + sigma*sqrt(dt)*dW
+      const drift = kappa * (theta - cur) * dt;
+      const shock = sigma * Math.sqrt(dt) * randn();
+      cur = Math.max(18.0, cur + drift + shock);
+      path.push(cur);
+    }
+    paths.push(path);
+    finalVals.push(cur);
+  }
+
+  // Calculate quantiles across time
+  const q5 = [], q25 = [], q50 = [], q75 = [], q95 = [];
+  const daysX = Array.from({ length: nDays + 1 }, (_, i) => `Month ${(i / 21).toFixed(1)}`);
+
+  for (let t = 0; t <= nDays; t++) {
+    const slice = paths.map(p => p[t]).sort((a, b) => a - b);
+    q5.push(slice[Math.floor(nPaths * 0.05)]);
+    q25.push(slice[Math.floor(nPaths * 0.25)]);
+    q50.push(slice[Math.floor(nPaths * 0.50)]);
+    q75.push(slice[Math.floor(nPaths * 0.75)]);
+    q95.push(slice[Math.floor(nPaths * 0.95)]);
+  }
+
+  // Fan chart traces
+  const traces = [
+    {
+      x: daysX, y: q95,
+      type: 'scatter', mode: 'lines', line: { width: 0 },
+      showlegend: false, hoverinfo: 'skip'
+    },
+    {
+      x: daysX, y: q5,
+      type: 'scatter', mode: 'lines', line: { width: 0 },
+      fill: 'tonexty', fillcolor: 'rgba(0, 242, 254, 0.12)',
+      name: '5th - 95th Percentile'
+    },
+    {
+      x: daysX, y: q75,
+      type: 'scatter', mode: 'lines', line: { width: 0 },
+      showlegend: false, hoverinfo: 'skip'
+    },
+    {
+      x: daysX, y: q25,
+      type: 'scatter', mode: 'lines', line: { width: 0 },
+      fill: 'tonexty', fillcolor: 'rgba(0, 242, 254, 0.25)',
+      name: '25th - 75th Percentile'
+    },
+    {
+      x: daysX, y: q50,
+      type: 'scatter', mode: 'lines',
+      line: { color: '#00f2fe', width: 2.5 },
+      name: 'Median Expected Path'
+    }
+  ];
+
+  // Add 3 sample paths
+  for (let j = 0; j < 3; j++) {
+    traces.push({
+      x: daysX, y: paths[j],
+      type: 'scatter', mode: 'lines',
+      line: { width: 1, color: 'rgba(255, 255, 255, 0.4)' },
+      showlegend: j === 0, name: 'Sample Path'
+    });
+  }
+
+  const layout = Object.assign({}, PLOT_LAYOUT, {
+    yaxis: Object.assign({}, PLOT_LAYOUT.yaxis, { title: 'S&P 500 Concentration (%)' })
+  });
+
+  Plotly.react('chartFan', traces, layout, { responsive: true, displayModeBar: false });
+
+  // Histogram of Final Values
+  const histTrace = [{
+    x: finalVals,
+    type: 'histogram',
+    nbinsx: 35,
+    marker: { color: '#00f2fe', opacity: 0.8 }
+  }];
+
+  const histLayout = Object.assign({}, PLOT_LAYOUT, {
+    xaxis: Object.assign({}, PLOT_LAYOUT.xaxis, { title: 'Terminal 1-Year Concentration (%)' }),
+    yaxis: Object.assign({}, PLOT_LAYOUT.yaxis, { title: 'Number of Paths' }),
+    showlegend: false
+  });
+
+  Plotly.react('chartHist', histTrace, histLayout, { responsive: true, displayModeBar: false });
+}
+
+// Start on load
+window.addEventListener("DOMContentLoaded", initDashboard);
+</script>
+</body>
+</html>

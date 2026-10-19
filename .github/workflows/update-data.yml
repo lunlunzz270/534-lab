@@ -1,0 +1,38 @@
+name: Update Market Concentration Data
+
+on:
+  schedule:
+    # Run at 22:00 UTC (after US market close) on weekdays Mon-Fri
+    - cron: '0 22 * * 1-5'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions UI
+
+permissions:
+  contents: write
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Update Market Data
+        run: |
+          python update_data.py
+
+      - name: Commit and Push if Changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update market data [skip ci]" && git push)
